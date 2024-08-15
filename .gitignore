@@ -26,3 +26,9 @@ cabal.project.local~
 __pycache__/
 *.py[cod]
 *$py.class
+
+.Rhistory
+.Rapp.history
+
+.RData
+.RDataTmp
