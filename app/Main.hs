@@ -18,16 +18,18 @@ type Grid = [Row]
 
 
 -------------------------------------------
--- functions to allow user to play the game
+-- functions to allow user/bot to play the game
 -------------------------------------------
 
 -- On running, begins a new game with score = 0, and a blank board
 main :: IO ()
 main = do
     pos <- getLocationToInsert blankGrid
+    weights <- getLine
+    let j = read weights :: [Int] 
     let startingBoard = addRandomTile pos blankGrid
     printBoard startingBoard
-    gameloop 0 startingBoard   
+    gameloopBot 0 j startingBoard   
 
 -- Score and board are use to store the current game states, and are updated every
 -- iteration, as well as a random tile being added to the board
@@ -51,7 +53,25 @@ gameloop score board =  do
     putStrLn ("Current score : " ++ show combScore)
     gameloop combScore updated
    
-    
+gameloopBot :: Int -> [Int]  -> Grid -> IO()
+gameloopBot score weights board =  do
+    -- allows the user to make their move
+   (newBoard,newScore) <- playTurnBot board weights
+   -- Corrects the score as required
+   let combScore = calcScore newBoard score + newScore
+
+   -- adds in a random tile
+   pos <- getLocationToInsert newBoard
+   let updated =  addRandomTile pos newBoard
+
+   -- if board full, ends the game, otherwise loops
+   let isStuck = checkIfStuck updated
+   if isStuck then putStrLn "Game over" >> printBoard updated >> putStrLn ("Your final score was : " ++ show combScore)
+   else do
+    printBoard updated
+    putStrLn ("Current score : " ++ show combScore)
+    gameloopBot combScore weights updated
+
 -- takes an entered character, checks it's one we are expecting, and then
 -- performs the necessary function
 playTurn :: Grid -> IO (Grid,Int)
@@ -63,6 +83,14 @@ playTurn grid = do
         _ -> f (shift r grid)
     where f (altered,score) = if altered == grid then putStrLn "Can't move that way!" >> playTurn grid 
                       else return (altered,score)
+
+
+playTurnBot :: Grid -> [Int] -> IO (Grid,Int)
+playTurnBot grid weights = do 
+    char <- evalRandIO(fromList (zip ['w','a','s','d'] (map fromIntegral weights)))
+    f (shift [char] grid)
+      where f (altered,score) = if altered == grid then putStrLn "Can't move that way!" >> playTurnBot grid weights
+                               else return (altered,score)
 
 
 ----------------------------------
