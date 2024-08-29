@@ -1,10 +1,6 @@
 TODO
 
-- fix labels on bar chart (label each bar)
--- turn y axis into percentage
--- add mean number of turns to bar chart (as annotation)
-- make similar bar chart for score
--- reorder summary table for directions (C,U,D,L,R,M)
--- reorder box plots to match summary table
--- write out conclusion
 -- improve formatting / text / proofread
+-- drop up / left weight in the small tables
+-- format the other table
+-- markdown issues
