@@ -1,6 +1,2 @@
 TODO
 
--- improve formatting / text / proofread
--- drop up / left weight in the small tables
--- format the other table
--- markdown issues
