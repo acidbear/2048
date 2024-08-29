@@ -1,6 +1,8 @@
 ---
-title: "Heuristics for 2048 : Data Visulisation"
-output: html_document
+title: 'Heuristics for 2048 : Data Visulisation'
+output:
+  pdf_document: default
+  html_document: default
 date: "August 2024"
 ---
 
@@ -10,74 +12,89 @@ library(tidyverse)
 library(viridis)
 library(knitr)
 library(ggpubr)
+library(float)
+library(kableExtra)
 bot_data <- read_csv("~/coding projects/2048/bot_data.csv")
-direction_labs <- c("Control", "Down","Left","Mixed","Right","Up")
+direction_order <- c("C","U","D","L","R","M")
+direction_labs <- c("Control","Up","Down","Left","Right","Mixed")
 ```
 
 # Introduction
 
-This document compares the results of 17 differently weighted bots playing the game "2048". The version of 2048 used to collect this data was originally written by me in Haskell. All the bots work in the same way, by picking their next move at random. However the weighting applied results in different bots favouring different directions. Each direction has one of: <br></br>
+This document shows some visulisations of the results of 17 differently weighted bots playing the game "2048". The version of 2048 used to collect this data was originally written by me in Haskell. All the bots work in the same way, namely by picking their next move at random, however we apply weighting to each direction resulting in different bots favouring different directions. Each direction has one of: <br></br>
+
  - no particular preference (weight = 1)<br></br>
  - a weak preference (weight = 5)<br></br>
- - a strong preference (weight = 10)<br></br>
- Each combination of preference was repeated 50 times, and with the score on every turn recorded, until the game was finished. In order to do this, I used Python to repeated call the Haskell executable (which runs in terminal).
+ - a strong preference (weight = 25)<br></br>
+ 
+Each combination of preferences was repeated 50 times with the score on every turn recorded until the game was finished. In order to do this, I used Python to repeated call the Haskell executable (which runs in terminal).
 
 # Raw Data Summary
 Below is the raw data collected after all 17 of the bots had finished their 50 attempts at playing the game. The 7 columns contain the following information: <br></br>
+
  - Bot id : First character indicates which weight combination is being  used, the number indicates it is the xth attempt with this weight combination<br></br>
  - Turn no. : The turn the bot is on in that attempt<br></br>
  - Current Score : The total score on each turn <br></br>
  - Up/Left/Down/Right weight : How much of a preference is given to each direction (numbers explained above)<br></br>
 
 ```{r raw data summary table}
-knitr :: kable(summary(bot_data),"simple")
+summary(bot_data) %>% 
+   knitr :: kable("simple",format='latex',booktabs= TRUE) %>% 
+     kable_styling(latex_options = c("HOLD_position","scale_down") )
 ```
 
 # Expanding the table
 
 We can now add a few columns to add some extra information for when we start making charts:<br></br>
+
  - lastTurn : Bool which says whether that turn is the bots last turn in a game<br></br>
- - weightClass: column containing the character from Bot id<br></br>
+ - weightClass: column containing the character from Bot id (condenses info from up/down/left/right weight)<br></br>
  - prefStrength: Strength of preference (Strong = at least one weight is 25, Weak = largest weighting is 5, Control = all weights are 1)<br></br>
  - Direction: If only one direction has a weighting larger than 1, that direction will appear in this column. If 2 directions have a weighting larger than 1, it's classed as M(ixed). If all directions are 1, it is classed as C(ontrol). The strength of the preference is virtually ignored here. <br></br>
  - comboOrSingle - generalisation of the Direction column, single means only one direction has a preference, combo means multiple directions have a preference<br></br>
+ 
 The pairings of the mixed combinations of directions are Up/Left, and Down/Right
 
 ```{r create all needed columns + display table}
 allCols <- bot_data %>% 
-            mutate(lastTurn = case_when(lead(`Bot id`) == `Bot id` ~ FALSE,
+      mutate(lastTurn = case_when(lead(`Bot id`) == `Bot id` ~ FALSE,
                            TRUE ~ TRUE)) %>% 
-            mutate(weightClass = substr(`Bot id`,1,1)) %>% 
-            mutate( prefStrength = case_when(`up weight`== 25 | `down weight` == 25
-                                         | `left weight` == 25 | `right weight` == 25 ~ "Strong",
-                                         `up weight`== 5 | `down weight` == 5
-                                       | `left weight` == 5 | `right weight` == 5 ~ "Weak",
-                                         TRUE ~ "Control")) %>% 
-            mutate(Direction = case_when(`up weight` > `down weight` & `left weight` == 1 ~ "U",
+      mutate(weightClass = substr(`Bot id`,1,1)) %>% 
+      mutate( prefStrength = case_when(`up weight`== 25 | `down weight` == 25
+                                  | `left weight` == 25 | `right weight` == 25 ~ "Strong",
+                                    `up weight`== 5 | `down weight` == 5
+                                  | `left weight` == 5 | `right weight` == 5 ~ "Weak",
+                                     TRUE ~ "Control")) %>% 
+      mutate(Direction = case_when(`up weight` > `down weight` & `left weight` == 1 ~ "U",
                               `down weight` > `up weight` & `right weight` == 1 ~ "D",
                               `left weight` > `right weight` & `up weight` == 1 ~ "L",
                               `right weight` > `left weight` & `down weight` == 1 ~ "R",
                               `up weight` != `down weight` ~ "M",
                                TRUE ~ "C")) %>% 
-            mutate(comboOrSingle = case_when(`up weight` != `down weight` & 
-                                               `left weight` != `right weight` ~ "Combo",
-                                               `up weight` == `down weight` & 
-                                               `left weight` == `right weight` ~ "Control",
-                                                TRUE ~ "Single"))
-  
-knitr :: kable(head(allCols),"simple",
-               caption="<font color='black' size=5>Start of the overall table</font>",)
+      mutate(comboOrSingle = case_when(Direction == 'M' ~ "Combo",
+                                       Direction == 'C' ~ "Control",
+                                       TRUE ~ "Single"))
+
+knitr :: kable(select(head(allCols,5),c(1:3,8:12)),format='latex',booktabs= TRUE,
+               caption="Start of the overall table") %>% 
+     kable_styling(latex_options = c("HOLD_position","scale_down")) %>% 
+  add_footnote("Up/Down/Left/Right weight ommited from figure",notation="none")
 ```
 
-We also create a table which only contains the final scores for each bots attempt, as a lot of visulisations are primarily interested in this, and not the journey to the score
+We also create a table which only contains the final scores for each bots attempt as a lot of visulisations are primarily interested in this and not the journey to the score.
 
 ```{r filtered for only final scores}
 final_scores <- allCols %>% 
     filter(lastTurn) %>% 
      select(-lastTurn) %>% 
       rename(finalScore = `Current score`, Turns = `Turn no.`)
-knitr :: kable(head(final_scores),"simple",
-               caption="<font color='black' size=5>Additional table, housing final scores</font>",)
+#reorder based on direction column 
+final_scores$Direction <- factor(final_scores$Direction,levels=direction_order) 
+
+knitr :: kable(select(head(final_scores,5),c(1:3,8:11)),'latex',booktabs= TRUE,
+               caption="Additional table housing final scores",) %>% 
+   kable_styling(latex_options = c("HOLD_position","scale_down")) %>% 
+  add_footnote("Up/Down/Left/Right weight ommited from figure",notation="none")
 ```
 
 
@@ -105,8 +122,8 @@ ggplot(data,aes_string(x=xaxis,y=yaxis)) +
 
 # General observations
 
-Firstly, we just look a general pattern in the data, between final score and the number of turns
-```{r final score vs num turns scatter}
+Firstly, we just look a general pattern in the data between final score and the number of turns
+```{r final score vs num turns scatter, fig.weight=5,fig.height=4}
 
 finalScoreVsTurns <- ggplot(final_scores,aes(x=finalScore,y=Turns)) +
   geom_point(aes(color=prefStrength)) + theme_minimal() +
@@ -115,22 +132,22 @@ finalScoreVsTurns <- ggplot(final_scores,aes(x=finalScore,y=Turns)) +
        color="Strength of preference") +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14)) + 
   scale_colour_viridis_d()
-
 finalScoreVsTurns + stat_cor(digits=3) +labs(title="Final score vs number of turns")
 
-finalScoreVsTurns + xlim(250,2000) + ylim(50,225) +labs(title="Snapshot of main graph (scores between 250-2000)")
+finalScoreVsTurns + xlim(250,2000) + ylim(50,225) +
+  labs(title="Snapshot of main graph (scores between 250-2000)")
 
 ```
 
 As we would expect, there is a very strong linear relationship between score and number
-of turns since the bots need to keep scoring in order to keep the board empty, and
-keep playing. However, it is interesting to note that for some scores, there can a 
+of turns since the bots need to keep scoring in order to keep the board empty and
+keep playing. However, it is interesting to note that for some scores there can be 
 very wide range of the number of turns it took to get there. For example for scores 
-just past 2000, it can take the bots anywhere between ~180-215 turns to get there.
+just past 2000 it can take the bots anywhere between ~180-215 turns to get there.
 
 For some of the highest scores, it's particularly interesting to see that roughly the
 same number of turns (in this case ~350) can lead to a fairly wild range of final scores,
-in this case, from ~3800-4750.
+in this case from ~3800-4750.
 
 From these scatters we can also see that it tends to be 
 that the bots with a strong preference for some direction have the highest scores.
@@ -148,53 +165,103 @@ preference for both going down and right.
 
 ```{r best score progress tracking graphs}
 best_score <- top_n(final_scores,1,finalScore)
-top_score <- best_score$`Bot id`
+top_scorer <- best_score$`Bot id`
+top_score <- best_score$finalScore
 
-best_perf <- allCols %>% 
-  filter(,`Bot id` == top_score) %>% 
+best_perf <- allCols %>%  filter(,`Bot id` == top_scorer) %>% 
   mutate(score_gained_on_move = `Current score` - lag(`Current score`))
 
-ggplot(best_perf,aes(x=`Turn no.`,y=score_gained_on_move)) + geom_line(colour="blue",lwd=0.8) +
-  theme_minimal() + labs(x="Turn number",y="Points gained on turn",
-                         title="Points gained per turn for the best performing bot") +
-theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14)) 
+ggplot(best_perf,aes(x=`Turn no.`,y=score_gained_on_move)) + 
+  geom_line(colour="blue",lwd=0.8) + theme_minimal() +
+  labs(x="Turn number",y="Points gained on turn",
+       title="Points gained per turn for the best performing bot") +
+theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14)) +
+  annotate("text",x=60,y=450,label = paste("Top Score : ",top_score),size=5)
 
 ggplot(best_perf, aes(x = `Turn no.`, y=`Current score`)) +
-  geom_line(colour="blue",lwd=1) +
+  geom_line(colour="blue",lwd=1) +  theme_minimal() + 
   labs(x = "Turn number", y = "Score",
        title = "Progression of the score for the best performing bot") +
-  theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14)) 
-
 ```
 
 Using these graphs we can spot where some high scoring tiles were combined, with the largest
 peak/jump being 512 (the largest tile obtained by the bot), and the two other large peaks both 
-being 256. The spread of large advancements in fairly evenly spread, as would be expected since
+being 256. The spread of large advancements is fairly even, as would be expected since
 the bot needs to build up to them. We can also see that the rate of progression in the flatter 
 sections is roughly the same throughout.
 
 <br></br>
 
+Now we look at the performance of the bots as a collective, and how effective they were at reaching certain milestones in terms 
+of numbers of turns and score.
 ```{r bar chart of bots surpassing nums of turns}
-counts = c(50,100,150,200,250,300,350,400)
+counts = seq(from=50,to=400,by=50)
+
+total_bots = allCols$`Bot id` %>% 
+  unique() %>%  length()
+
+mean_num_of_turns <- mean(final_scores$Turns) %>% round(2)
 
 inter <- allCols %>% 
   group_by(`Turn no.`) %>% 
   summarize(count = n()) %>% ungroup() %>% 
-  filter(`Turn no.` %in% counts) %>% 
-  right_join(data.frame("Turn no." = counts,check.names = FALSE),by="Turn no.") %>% 
-  replace(is.na(.),0)
+   filter(`Turn no.` %in% counts) %>% 
+   right_join(data.frame("Turn no." = counts,
+                         check.names = FALSE),by="Turn no.") %>% 
+   replace(is.na(.),0) %>% mutate(as_percent = 100*(count / total_bots))
 
-ggplot(inter,aes(x=`Turn no.`,y=count)) +
+figure <- ggplot(inter,aes(x=`Turn no.`,y=as_percent)) +
   geom_col(aes(fill=as.factor(`Turn no.`)),colour="black",show.legend=FALSE) +
    theme_minimal() + xlim(0,400) +
-  labs(x="Turn Number",y="Number of bots making it to that turn",
-       title = "Bar chart to see how many turns each bot made it through") +
-  scale_fill_viridis(discrete = TRUE, option = "D") 
+  labs(x="Turn Number",y="Percentage of bots making it to that turn",
+       title = "Percentage of bots making it to each turn milestone") +
+  annotate("text", x=275,y=81.25,
+           label=paste("Mean number of turns : ",mean_num_of_turns),size=5) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14)) 
+
+# to remove warning about replacing scale
+figure$scales$scales <- list() 
+figure +  scale_x_discrete(limits=counts) + 
+  scale_fill_viridis(discrete = TRUE, option = "D") +
+   scale_y_continuous(labels = function(x) paste0(x,"%"))
 ```
 
-From this bar chart we can see the drop-off in the percentage of bots getting past a certain number of turns. The greatest drop-off occurs between 100 and 150 turns, and 150 and 200 turns. This makes a lot of sense, since as we can see the mean number of turns is 151.3. This chart reinforces the fact that very few bots managed to make it past 300 turns.
+From this bar chart we can see the drop-off in the percentage of bots getting past a certain number of turns. The greatest drop-off occurs between 100 and 150 turns, and 150 and 200 turns. This aligns with what we would expect as the mean number of turns is 151.3. This chart reinforces the fact that very few of the bots managed to make it past 300 turns.
+
+```{r bar chart of bots surpassing a certain score}
+score_counts = seq(from=500,to=5500,by=500)
+mean_score <- mean(final_scores$finalScore) %>% round(2)
+
+score_bracketing <- final_scores$finalScore %>% 
+  findInterval(vec=c(0,score_counts)) %>% table() 
+total_bracketing <- tail(rev(cumsum(rev(score_bracketing))),-1)
+length(total_bracketing) <- length(score_counts)
+x <- data.frame(total_bracketing,score_counts) %>% replace(is.na(.),0) %>% 
+  mutate(as_percents = 100 * (total_bracketing / total_bots))
+
+figure <- ggplot(x,aes(x=score_counts,y=as_percents)) +
+  geom_col(aes(fill=as.factor(`score_counts`)),colour="black",show.legend=FALSE) +
+   theme_minimal() + xlim(0,5500) +
+  labs(x="Score Reached",y="Percentage of bots making it to that score",
+       title = "Percentage of bots reaching each score milestone") +
+  scale_y_continuous(labels = function(x) paste0(x,"%")) +
+  annotate("text", x=3840,y=81.25,
+           label=paste("Mean score : ",mean_score),size=5) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14)) 
+
+# to remove waning message about replacing scale
+figure$scales$scales <- list()
+figure + scale_x_discrete(limits=score_counts) + 
+  scale_fill_viridis(discrete = TRUE, option = "D") +
+    scale_y_continuous(labels = function(x) paste0(x,"%")) 
+```
+96% of the bots successfully made it to 500, after which the next two scores have a fairly similar drop-off of around 30%. 10% of bots made it past
+2500, but by 3000 this had fallen to just 3%, and then less than 1% by the time we reached a score of 3500. The mean score is fairly low, likely dragged down 
+by a lot of bots only achieving small scores outweighing the effects of the few bots achieving a larger score. Given that all the bots have been grouped 
+together, some of the poorer performing bots may have also weighed down the mean. 
+<br></br>
+<br></br>
 
 # Directional Preference
 In this section we see if direction had an effect on the success of the bots (here we generally do not worry about the strength of the preference in each direction). We would expect that the single directions should all have roughly equivalent performance, since the board is symmetric. 
@@ -202,29 +269,32 @@ In this section we see if direction had an effect on the success of the bots (he
 ```{r final score per direction summary table}
 dir_finalscore_summary <- final_scores %>% 
   group_by(Direction) %>% 
-  make_summary_table("finalScore") %>% 
+   make_summary_table("finalScore")%>%
+  arrange(match(Direction,direction_order)) %>% 
     mutate(Direction = direction_labs)
   
 knitr :: kable(dir_finalscore_summary,"simple",digits=2,
-               caption="<font color='black' size=5>Summary stats based on final score</font>")
+               caption="Summary stats based on final score")
 ```
 
-Just by looking at the summary table we can see that the four solo directions were fairly similar, with Up being the weakest. Down and Left, also have fairly high standard deviations compare to the Right and Up. However in most respects these four lived up to the expectations, and were fairly similar, something which is even more apparent in the boxplots below. The mixed directions clearly far outperformed all the other combinations.
+Just by looking at the summary table we can see that the four solo directions were fairly similar, with Up being the weakest. Down and Left also have fairly high standard deviations compared to Right and Up. However in most respects these four behaved as expected and were fairly similar, something which is even more apparent in the boxplots below. The mixed directions clearly far outperformed all the other combinations.
 
-```{r direction vs final score boxplot}
+```{r direction vs final score boxplot, fig.width=6,fig.height=3.8}
 
-dirVsFinalScoreO <- make_boxplot(final_scores,"Direction","finalScore","Direction",show_legend = FALSE)
+dirVsFinalScoreO <- make_boxplot(final_scores,"Direction","finalScore",
+                                 "Direction",show_legend = FALSE)
 dirVsFinalScoreO +
       labs(x="Directional Preference", y = "Final Score",
-       title = "Final score based on directional preference (overall)")
-
-dirVsFinalScoreS <- make_boxplot(final_scores,"Direction","finalScore","prefStrength")
-dirVsFinalScoreS +
-    labs(x="Directional Preference", y = "Final Score",
-       title="Final score based on directional preference (by strength)",
-       color="Strength of preference") +
+       title = "Final score based on \ndirectional preference (overall)") +
   scale_x_discrete(labels = direction_labs)
 
+dirVsFinalScoreS <- make_boxplot(final_scores,"Direction","finalScore",
+                                 "prefStrength")
+dirVsFinalScoreS +
+    labs(x="Directional Preference", y = "Final Score",
+       title="Final score based on \ndirectional preference (by strength)",
+       color="Strength of \n preference") +
+  scale_x_discrete(labels = direction_labs)
 ```
 
 In these two graphs we see even more clearly that the performance of the four solo directions is very similar, with their boxplots looking almost the same. The control bot where all 4 directions had equal weighting seemingly tended to do the worst, whilst mixed combinations outperformed all other bots including with the most high-valued outliers.
@@ -233,33 +303,36 @@ Looking at the second graph, we see that no matter the direction chosen, the bot
 
 <br></br>
 
-Now we move to see the effect each directional preference on the number of turns the bots lasted. Although this is not the metric we particularly care about (a long, low scoring game is not as good as a short, fast scoring game), from above we see that there is a strong correlation between number of turns and score, so a game with lots of turns is likely to have been very successful.
+Now we move to see the effect of each directional preference on the number of turns the bots lasted. Although this is not the metric we particularly care about (a long, low scoring game is not as good as a short, fast scoring game), from above we see that there is a strong correlation between number of turns and score, so a game with lots of turns is likely to have been very successful.
 
 ```{r num of turns per direction summary table}
 dir_turns_summary <- final_scores %>% 
   group_by(Direction) %>% 
    make_summary_table("Turns") %>% 
-    mutate(Direction = direction_labs)
+  arrange(match(Direction,direction_order)) %>% 
+    mutate(Direction = direction_labs) 
 
 knitr :: kable(dir_turns_summary,"simple",digits=2,
-               caption="<font color='black' size=5>Summary stats based on number of turns</font>")
+               caption="Summary stats based on number of turns")
 ```
 
-As in the case for the final score, here again we see than the four solo directions were all fairly similar in terms of their performance, with Up still being the weakest. Mixed combinations also came out on top in this metric, althought its standard deviation was more similar to the other categories this time.
+As in the case for the final score, here again we see than the four solo directions were all fairly similar in terms of their performance, with Up still being the weakest. Mixed combinations also came out on top in this metric, although its standard deviation was more similar to the other categories this time.
 
-```{r direction vs num turns boxplot}
+```{r direction vs num turns boxplot, fig.width=6,fig.height=3.8}
 
-dirVsTurnsO <- make_boxplot(final_scores,"Direction","Turns","Direction",show_legend = FALSE)
+dirVsTurnsO <- make_boxplot(final_scores,"Direction","Turns",
+                            "Direction",show_legend = FALSE)
 dirVsTurnsO + 
   labs(x="Directional Preference", y = "Number of turns",
-       title = "Number of turns based on directional preference (overall)") + 
-  scale_x_discrete(labels = c("Control", "Down","Left","Mixed","Right","Up"))
+       title = "Number of turns based on \ndirectional preference (overall)") + 
+  scale_x_discrete(labels = direction_labs)
 
 dirVsTurnsS <- make_boxplot(final_scores,"Direction","Turns","prefStrength")
 dirVsTurnsS + 
   labs(x="Directional Preference", y = "Number of turns",
-       title = "Number of turns based on directional preference (by strength)") + 
-  scale_x_discrete(labels = c("Control", "Down","Left","Mixed","Right","Up"))
+       title = "Number of turns based on \ndirectional preference (by strength)",
+       colour= 'Strength of \n preference') + 
+  scale_x_discrete(labels = direction_labs)
 ```
 
 We can see that the graphs for the number of turns and final score are very similar
@@ -269,7 +342,7 @@ between these two variables, as mentioned earlier. We will also see this pattern
 
 # Strength Preference
 
-In this section we change our focus to see if the strength of the preference has an impact on the score. We mainly compare a weak preference (max 5 in any direction), with a strong preference(25 in some direction), of course alongside the completely random bot.
+In this section we change our focus to see if the strength of the preference has an impact on the score. We mainly compare a weak preference (max 5 in any direction) with a strong preference(25 in some direction), alongside the completely random bot.
 
 ```{r final score by strength summary table}
 strength_finalscore_summary <- final_scores %>% 
@@ -278,30 +351,32 @@ strength_finalscore_summary <- final_scores %>%
   rename(`Strength of Preference` =prefStrength)
 
 knitr :: kable(strength_finalscore_summary,"simple",digits=2,
-               caption="<font color='black' size=5>Summary stats based on final score</font>")
+               caption="Summary stats based on final score")
 ```
 
-From this table we see that a strong preference comes out superior in virtually every metric, although it does have a much larger spread of values. It's mean score is over 300 points larger than that of the bots with a weak preference, although this is probably helped by a couple of very large scores achieved by the strong preference bots. Interestingly though, the strong preference bots also achieved the lowest minumum score of just 228.
+From this table we see that a strong preference comes out superior in virtually every metric, although it does have a much larger spread of values. It's mean score is over 300 points larger than that of the bots with a weak preference, although this is probably helped by a couple of very large scores achieved by the strong preference bots. Interestingly though, the strong preference bots also achieved the lowest score of just 228.
 
 
-```{r strength vs final score boxplots}
+```{r strength vs final score boxplots,fig.width=6,fig.height=3.8}
 
 strengthVsScoreO <- make_boxplot(final_scores,"prefStrength","finalScore","prefStrength",show_legend = FALSE)
 strengthVsScoreO + labs(x="Strength of Preference", y = "Final Score",
-                        title ="Final scores for different strengths of preference (overall)")  
+                        title ="Final scores for different \nstrengths of preference (overall)")  
 
-strengthVsScoreD <- make_boxplot(final_scores,"prefStrength","finalScore","Direction")
-strengthVsScoreD + labs(x="Strength of Preference", y = "Final Score",
-                        title ="Final scores for different strengths of preference (by direction)")
+strengthVsScoreD <- make_boxplot(final_scores,"prefStrength","finalScore","Direction") +
+           labs(x="Strength of Preference", y = "Final Score",
+                        title ="Final scores for different \nstrengths of preference (by direction)")
 
+strengthVsScoreD$scales$scales <- list()
+strengthVsScoreD +  scale_colour_viridis(discrete=TRUE,option='D',labels=direction_labs)
 ```
 
-From these boxplots we see that on average, the weak bots weren't much better than the control bots, although we see they were far more likely to actually reach higher scores from the number of outliers. Clearly though, on average the strong preference bots were head and shoulders above the others, and achieved the vast majority of large scores, as see in all the high outliers.
+From these boxplots we see that on average,the weak bots weren't much better than the control bots, although we see they were far more likely to actually reach higher scores from the number of outliers. Clearly though, on average the strong preference bots were head and shoulders above the others and achieved the vast majority of large scores as seen in all the high outliers.
 
-From the second graph we see that the best perfoming bots tended to be the bots with a strong, mixed preference for diection.
+From the second graph we see that the best performing bots tended to be the bots with a strong, mixed preference for direction.
 
 <br></br>
-Similarly to direction, we will also now look at a comparison of the number of turns achieved in the games by bots with different strengths of preferences
+Similarly to direction, we will also now look at a comparison of the number of turns achieved in the games by bots with different strengths of preferences.
 
 ```{r num of turns by strength summary table}
 strength_turns_summary <- final_scores %>% 
@@ -309,22 +384,24 @@ strength_turns_summary <- final_scores %>%
   make_summary_table("Turns")
 
 knitr :: kable(strength_turns_summary,"simple",digits=2,
-               caption="<font color='black' size=5>Summary stats based on number of turns</font>")
+               caption="Summary stats based on number of turns")
 ```
 
 Echoing the summary from earlier, strong preference bots have outperformed the other bots by a fairly larger margin, with a mean number of turns 30 greater than either of the other two. However their spread of how many turns each game took was much larger, and a strong preference bot also had the shortest game of just 47 turns. 
 
-```{r number of turns by strength box plots}
+```{r number of turns by strength box plots,fig.width=6,fig.height=3.8}
 strengthVsTurnsO <- make_boxplot(final_scores,"prefStrength","Turns","prefStrength",show_legend = FALSE)
 strengthVsTurnsO +labs(x="Strength of Preference", y = "Number of Turns",
-                       title ="Number of turns for different strengths of preference (overall)") 
+                       title ="Number of turns for different \nstrengths of preference (overall)") 
 
-strengthVsTurnsD <- make_boxplot(final_scores,"prefStrength","Turns","Direction")
-strengthVsTurnsD + labs(x="Strength of Preference", y = "Number of turns",
-                        title ="Number of turns for different strengths of preference (by direction)") 
+strengthVsTurnsD <- make_boxplot(final_scores,"prefStrength","Turns","Direction") + 
+                    labs(x="Strength of Preference", y = "Number of turns",
+                        title ="Number of turns for different \nstrengths of preference (by direction)")
+strengthVsTurnsD$scales$scales <- list()
+strengthVsTurnsD + scale_colour_viridis(discrete=TRUE,option='D',labels=direction_labs)
 ```
 
-As noted earlier these box plots are very similar to those for final score, with the only noticeable different being in the scale. Mixed combination bots prevail in both strong and weak preferences. WE can see that there is a bit of a spread between the different solo directions, with some seeming to perform better than others. Interestingly, Up and Down seem to be the worst when it comes to strong preference bots, but then some of the best on the weak preference bots. However this may just be something that would be ironed out if we ran the bots for more than 50 times each.
+As noted earlier these box plots are very similar to those for final score, with the only noticeable difference being in the scale. Mixed combination bots prevail in both strong and weak preferences. We can see that there is a bit of a spread between the different solo directions, with some seeming to perform better than others. Interestingly, Up and Down seem to be the worst when it comes to strong preference bots, but then some of the best on the weak preference bots. However this may just be something that would be ironed out if we ran the bots for more than 50 times each.
 
 
 # Combination vs Solo preference
@@ -340,7 +417,7 @@ combo_finalscore_summary <- final_scores %>%
    slice(2,1,3) %>% rename(`Button combination` = comboOrSingle )
 
 knitr :: kable(combo_finalscore_summary,"simple",digits = 2,
-               caption="<font color='black' size=5>Summary stats based on final score</font>")
+               caption="Summary stats based on final score")
 
 combo_turns_summary <- final_scores %>% 
   group_by(comboOrSingle) %>% 
@@ -348,7 +425,7 @@ combo_turns_summary <- final_scores %>%
   slice(2,1,3) %>% rename(`Button combination` = comboOrSingle )
 
 knitr :: kable(combo_turns_summary,"simple",digits = 2,
-               caption="<font color='black' size=5>Summary stats based on number of turns</font>")
+               caption="Summary stats based on number of turns")
 ```
  
 From the summary tables we see that the bots with a combination of preferences generally outperform the other bots in both number of turns and final score. The tables here are extremely similar to those for strength of preference, with nearly identical means for combo/strong preferences and single/weak preferences. (The group of control bots are in fact the same)  
@@ -362,9 +439,10 @@ comboVsScore +
        title ="Final score achieved by different button combinations") 
 ```
  
-Practically all the scores over 3250 were achieved by bots with a combination of preferences. We can easily see here that the button with just a single directional preference were not much better than the completely random bots on average, although were better at more consistently achieving a score greater than 2500. The greatest spread of results appears in the combo bots, with their worst score lower than that of the control bots.
+Practically all the scores over 3250 were achieved by bots with a combination of preferences. We can easily see here that the bots with just a single directional preference were not much better than the completely random bots on average, although were better at more consistently achieving a score greater than 2500. The greatest spread of results appears in the combo bots, with their worst score lower than that of the control bots.
  
 ```{r line chart comparing max strength combo bots final scores}
+
 max_strength <- final_scores %>% 
   filter(comboOrSingle == "Combo" & ((`up weight` == 25 & `left weight` == 25) |
                                        (`down weight` == 25 & `right weight` == 25))) %>% 
@@ -395,4 +473,14 @@ Here we can see a comparison of the two different types of combo bots we used, w
 
 ## Conclusion 
 
-waffle
+On the whole, we can see that the optimal bots seem to have strong preferences, and a combination of preferences. It seems that having stronger preferences and using a combination of preferences are equally important, as the means when looking at these categories individually are extremely similar. Having any kind of preference, in any direction, is preferable to complete pseudo-randomness indicating that trying to collect the tiles in a specific location is a strategy which has some chance at success (and indeed is the strategy often used by human players looking to get a good score).
+
+<br></br>
+These results could definitely be improved if I were to redo the project, for example by running each bot more times, since 50 is a fairly small
+sample size. I could also experiment more with different weightings to the preferences. More exploration could also be done, looking at which is the most
+consistent configuration, for example, since the mixed combinations can perform very well, but also had a few shockingly bad performances as mentioned above.
+
+<br></br>
+Thanks for reading, any feedback/advice/improvements would be welcomed. My version of 2048 is available to play yourself and can be found on my github page along with the csv file all these visulisations were created from, and the scripts to run the bots. 
+
+<br></br>
