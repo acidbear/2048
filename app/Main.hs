@@ -24,17 +24,19 @@ type Grid = [Row]
 -- On running, begins a new game with score = 0, and a blank board
 main :: IO ()
 main = do
+    putStrLn "Press enter to start playing, and q to quit!"
     pos <- getLocationToInsert blankGrid
     weights <- getLine
     let j = read weights :: [Int] 
     let startingBoard = addRandomTile pos blankGrid
     printBoard startingBoard
-    gameloopBot 0 j startingBoard   
+    gameloop 0 j startingBoard  -- In order to play, delete 'Bot' from gameloopBot   
 
 -- Score and board are use to store the current game states, and are updated every
 -- iteration, as well as a random tile being added to the board
-gameloop :: Int -> Grid -> IO()
-gameloop score board =  do
+-- [Int] is there to have same type signature as the bot version
+gameloop :: Int -> [Int] -> Grid -> IO()
+gameloop score _ board =  do
     -- allows the user to make their move
 
    (newBoard,newScore) <- playTurn board
@@ -51,7 +53,7 @@ gameloop score board =  do
    else do
     printBoard updated
     putStrLn ("Current score : " ++ show combScore)
-    gameloop combScore updated
+    gameloop combScore [] updated
    
 gameloopBot :: Int -> [Int]  -> Grid -> IO()
 gameloopBot score weights board =  do
