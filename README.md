@@ -1,5 +1,7 @@
 # 2048 Data Visulisation
 
+Note : The write-up of my findings can be read [here](https://github.com/annaFlett/2048/blob/main/visulisations.pdf)
+
 2048 is a single-player game with the aim of sliding matching tiles together, creating a new tile with double the value, to get the highest possible score before no more moves are possible. In this project I wanted to look at the results of different playstyles
 of the game and how they compare using some visulisations. There were 3 parts that went into creating the final document: 
 
@@ -21,4 +23,4 @@ I then used these tables to make some visulisations. This was all done in R, wit
 The types of graphs used include line graphs, bar graphs, box plots and scatter graphs. I tried to use a wide range   since I had both categorical data and numerical data to compare.
 The main comparisons were drawn between the directions in which the bots favoured, and the strength of the preferences of the bots.
 
-The results of the project can be found in visulisations.pdf which includes all code cells and finished graphs, as well as a few summary tables for the data and some text explaining common trends and comparing the performance of the different types of bots.  
+The results of the project can be found in [visulisations.pdf](https://github.com/annaFlett/2048/blob/main/visulisations.pdf) which includes all code cells and finished graphs, as well as a few summary tables for the data and some text explaining common trends and comparing the performance of the different types of bots.  
